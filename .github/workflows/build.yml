@@ -23,16 +23,16 @@ jobs:
         #SPARK_GIT_REVISION=4a0605e
         SPARK_GIT_REVISION=e203236
 
-        # Check if the folder spark exists, and pull it from github if it doesn't
-        if [ -d "spark" ]; then
-            cd spark
+        # Check if the folder axs-spark exists, and pull it from github if it doesn't
+        if [ -d "axs-spark" ]; then
+            cd axs-spark
             git checkout master
             git pull
             git checkout $SPARK_GIT_REVISION
             cd ../
         else
             git clone https://github.com/astronomy-commons/axs-spark.git
-            cd spark
+            cd axs-spark
             git checkout $SPARK_GIT_REVISION
             cd ../
         fi
@@ -46,16 +46,16 @@ jobs:
         fi
 
         # place the https://github.com/dirac-institute/AXS/tree/master/axs folder inside the `python` subfolder
-        cp -r ./axs/axs ./spark/python/.
+        cp -r ./axs/axs ./axs-spark/python/.
 
         # place the built AxsUtilities jar (https://github.com/dirac-institute/AXS/tree/master/AxsUtilities) inside the `python/axs` folder
         cd ./axs/AxsUtilities
         mvn package
         cd ../../
-        cp -r ./axs/AxsUtilities/target/*.jar ./spark/python/axs/.
+        cp -r ./axs/AxsUtilities/target/*.jar ./axs-spark/python/axs/.
         
         # build AXS into runnable distribution
-        cd spark
+        cd axs-spark
         ./dev/make-distribution.sh --name AXS-$AXS_VERSION --tgz -Phadoop-2.7 -Pmesos -Pyarn -Phive -Phive-thriftserver -Pkubernetes
 
         mv spark*tgz ../axs-distribution-$AXS_VERSION.tgz
