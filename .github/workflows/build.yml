@@ -17,11 +17,15 @@ jobs:
         echo test, and deploy your project.
     - name: echo contents
       run: echo $(ls)
+    - name: pwd
+      run: echo $(pwd)
+    - name: look around
+      run: |
+        cd ../
+        ls
     - name: build_axs
       run: |
-        mkdir axs-temp
-        mv * axs-temp
-        mv axs-temp axs
+        cd ../
         
         # Specify the version of AXS to use
         AXS_VERSION="v2.4"
