@@ -1,0 +1,62 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Run a one-line script
+      run: echo Hello, world!
+    - name: Run a multi-line script
+      run: |
+        echo Add other actions to build,
+        echo test, and deploy your project.
+    - name: build_axs
+      run: |
+        # Specify the version of AXS to use
+        AXS_VERSION="v2.4"
+        # Specify the GIT revision hash to build AXS against
+        #SPARK_GIT_REVISION=4a0605e
+        SPARK_GIT_REVISION=e203236
+
+        # Check if the folder spark exists, and pull it from github if it doesn't
+        if [ -d "spark" ]; then
+            cd spark
+            git checkout master
+            git pull
+            git checkout $SPARK_GIT_REVISION
+            cd ../
+        else
+            git clone https://github.com/astronomy-commons/axs-spark.git
+            cd spark
+            git checkout $SPARK_GIT_REVISION
+            cd ../
+        fi
+        # Check if the folder AXS exists, and pull it from github if it doesn't
+        if [ -d "axs" ]; then
+            cd axs
+            git pull
+            cd ../
+        else
+            git clone https://github.com/astronomy-commons/axs.git
+        fi
+
+        # place the https://github.com/dirac-institute/AXS/tree/master/axs folder inside the `python` subfolder
+        cp -r ./axs/axs ./spark/python/.
+
+        # place the built AxsUtilities jar (https://github.com/dirac-institute/AXS/tree/master/AxsUtilities) inside the `python/axs` folder
+        cd ./axs/AxsUtilities
+        mvn package
+        cd ../../
+        cp -r ./axs/AxsUtilities/target/*.jar ./spark/python/axs/.
+        
+        # build AXS into runnable distribution
+        cd spark
+        ./dev/make-distribution.sh --name AXS-$AXS_VERSION --tgz -Phadoop-2.7 -Pmesos -Pyarn -Phive -Phive-thriftserver -Pkubernetes
+
+        mv spark*tgz ../axs-distribution-$AXS_VERSION.tgz
+
