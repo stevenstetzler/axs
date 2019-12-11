@@ -15,6 +15,8 @@ jobs:
       run: |
         echo Add other actions to build,
         echo test, and deploy your project.
+    - name: echo contents
+      run: echo $(ls)
     - name: build_axs
       run: |
         # Specify the version of AXS to use
@@ -29,9 +31,6 @@ jobs:
         git checkout $SPARK_GIT_REVISION
         cd ../
         
-        # get axs
-        git clone https://github.com/astronomy-commons/axs.git
-
         # place the https://github.com/dirac-institute/AXS/tree/master/axs folder inside the `python` subfolder
         cp -r ./axs/axs ./axs-spark/python/.
 
