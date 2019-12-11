@@ -23,27 +23,14 @@ jobs:
         #SPARK_GIT_REVISION=4a0605e
         SPARK_GIT_REVISION=e203236
 
-        # Check if the folder axs-spark exists, and pull it from github if it doesn't
-        if [ -d "axs-spark" ]; then
-            cd axs-spark
-            git checkout master
-            git pull
-            git checkout $SPARK_GIT_REVISION
-            cd ../
-        else
-            git clone https://github.com/astronomy-commons/axs-spark.git
-            cd axs-spark
-            git checkout $SPARK_GIT_REVISION
-            cd ../
-        fi
-        # Check if the folder AXS exists, and pull it from github if it doesn't
-        if [ -d "axs" ]; then
-            cd axs
-            git pull
-            cd ../
-        else
-            git clone https://github.com/astronomy-commons/axs.git
-        fi
+        # get spark
+        git clone https://github.com/astronomy-commons/axs-spark.git
+        cd axs-spark
+        git checkout $SPARK_GIT_REVISION
+        cd ../
+        
+        # get axs
+        git clone https://github.com/astronomy-commons/axs.git
 
         # place the https://github.com/dirac-institute/AXS/tree/master/axs folder inside the `python` subfolder
         cp -r ./axs/axs ./axs-spark/python/.
@@ -59,4 +46,6 @@ jobs:
         ./dev/make-distribution.sh --name AXS-$AXS_VERSION --tgz -Phadoop-2.7 -Pmesos -Pyarn -Phive -Phive-thriftserver -Pkubernetes
 
         mv spark*tgz ../axs-distribution-$AXS_VERSION.tgz
+        cd ..
+        echo $(ls)
 
