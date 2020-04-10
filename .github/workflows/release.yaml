@@ -14,13 +14,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@master
       - name: build_axs
+        env:
+          AXS_VERSION: ${{ github.ref }}
+          SPARK_GIT_REVISION: axs-master
         run: |
           cd ../
 
           # Specify the version of AXS to use
-          AXS_VERSION="v2.4"
+          # AXS_VERSION="v2.4"
           # Specify the GIT revision hash to build AXS against
-          SPARK_GIT_REVISION=e203236
+          # SPARK_GIT_REVISION=e203236
           # get spark
           git clone https://github.com/astronomy-commons/axs-spark.git
           cd axs-spark
