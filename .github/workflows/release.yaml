@@ -11,66 +11,101 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@master
       - name: Extract tag name
         id: tag
-        uses: actions/github-script@0.9.0
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            return context.payload.ref.replace(/\/refs\/tags\//, '');
-      - name: build_axs
         env:
-          AXS_VERSION: ${{ steps.tag.outputs.result }}
-          SPARK_GIT_REVISION: axs-master
+          ref: ${{ github.ref }}
         run: |
-          cd ../
-
-          # Specify the version of AXS to use
-          # AXS_VERSION="v2.4"
-          # Specify the GIT revision hash to build AXS against
-          # SPARK_GIT_REVISION=e203236
-          # get spark
-          git clone https://github.com/astronomy-commons/axs-spark.git
-          cd axs-spark
-          git checkout $SPARK_GIT_REVISION
-          cd ../
-
-          # place the https://github.com/dirac-institute/AXS/tree/master/axs folder inside the `python` subfolder
+          tag=${ref##*/}
+          echo "::set-output name=tag::${tag}"
+      - name: Checkout AXS
+        uses: actions/checkout@v2
+        with:
+          repository: stevenstetzler/axs
+          path: ./axs
+          ref: ${{ github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout AXS-Spark
+        uses: actions/checkout@v2
+        with:
+          repository: astronomy-commons/axs-spark
+          path: ./axs-spark
+          ref: axs-3.0.0-preview
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Move AXS
+        run: |
           cp -r ./axs/axs ./axs-spark/python/.
-          # place the built AxsUtilities jar (https://github.com/dirac-institute/AXS/tree/master/AxsUtilities) inside the `python/axs` folder
+      - name: Build AxsUtilities
+        run: |
+          # build AxsUtilities.jar
           cd ./axs/AxsUtilities
           mvn package
-          cd ../../
+      - name: Move AxsUtilities
+        run: |
+          # place the built AxsUtilities jar inside the `python/axs` folder
           cp -r ./axs/AxsUtilities/target/*.jar ./axs-spark/python/axs/.
-
-          # build AXS into runnable distribution
+      - name: Build AXS-Spark
+        env:
+          AXS_VERSION: ${{ steps.tag.outputs.tag }}
+        run: |
+          # build AXS-Spark into runnable distribution
           cd axs-spark
           ./dev/make-distribution.sh --name AXS-$AXS_VERSION --tgz -Phadoop-2.7 -Pmesos -Pyarn -Phive -Phive-thriftserver -Pkubernetes
           mv spark*tgz ../axs-distribution.tgz
-          cd ..
-          echo $(ls)
+      - name: List
+        run: echo $(ls)
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: Test
-          draft: false
-          prerelease: false
-      - name: Upload Release Asset
-        id: upload-release-asset 
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ../axs-distribution.tgz
-          asset_name: axs-distribution.tgz
-          asset_content_type: application/zip
+  #      - name: build_axs
+  #        env:
+  #          AXS_VERSION: ${{ github.ref }}
+  #          SPARK_GIT_REVISION: axs-master
+  #        run: |
+  #          cd ../
+  #
+  #          # Specify the version of AXS to use
+  #          # AXS_VERSION="v2.4"
+  #          # Specify the GIT revision hash to build AXS against
+  #          # SPARK_GIT_REVISION=e203236
+  #          # get spark
+  #          git clone https://github.com/astronomy-commons/axs-spark.git
+  #          cd axs-spark
+  #          git checkout $SPARK_GIT_REVISION
+  #          cd ../
+  #
+  #          # place the https://github.com/dirac-institute/AXS/tree/master/axs folder inside the `python` subfolder
+  #          cp -r ./axs/axs ./axs-spark/python/.
+  #          # place the built AxsUtilities jar (https://github.com/dirac-institute/AXS/tree/master/AxsUtilities) inside the `python/axs` folder
+  #          cd ./axs/AxsUtilities
+  #          mvn package
+  #          cd ../../
+  #          cp -r ./axs/AxsUtilities/target/*.jar ./axs-spark/python/axs/.
+  #
+  #          # build AXS into runnable distribution
+  #          cd axs-spark
+  #          ./dev/make-distribution.sh --name AXS-$AXS_VERSION --tgz -Phadoop-2.7 -Pmesos -Pyarn -Phive -Phive-thriftserver -Pkubernetes
+  #          mv spark*tgz ../axs-distribution.tgz
+  #          cd ..
+  #          echo $(ls)
+  #
+  #      - name: Create Release
+  #        id: create_release
+  #        uses: actions/create-release@v1
+  #        env:
+  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+  #        with:
+  #          tag_name: ${{ github.ref }}
+  #          release_name: Release ${{ github.ref }}
+  #          body: Test
+  #          draft: false
+  #          prerelease: false
+  #      - name: Upload Release Asset
+  #        id: upload-release-asset 
+  #        uses: actions/upload-release-asset@v1.0.1
+  #        env:
+  #          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #        with:
+  #          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+  #          asset_path: ../axs-distribution.tgz
+  #          asset_name: axs-distribution.tgz
+  #          asset_content_type: application/zip
 
