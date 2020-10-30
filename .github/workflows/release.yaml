@@ -8,50 +8,32 @@ name: Create Release
 
 jobs:
   build:
-    name: Create Release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Extract tag name
-        id: tag
-        env:
-          ref: ${{ github.ref }}
-        run: |
-          tag=${ref##*/}
-          echo "::set-output name=tag::${tag}"
-      - name: Checkout AXS
+    container:
+      # virtual machine
+      runs-on: ubuntu-latest
+      # Docker container
+      image: "maven:3.6.3-jdk-8"
+      steps:
+      - name: Checkout repository
         uses: actions/checkout@v2
         with:
           repository: stevenstetzler/axs
           path: ./axs
           ref: ${{ github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build AxsUtilities
+      - name: Read version
+        id: version
+        run:
+          cd ./axs
+          version=$(cat build/version)
+          echo "::set-output name=version::${version}"
+      - name: Build AXS
         run: |
           # build AxsUtilities.jar
           cd ./axs/AxsUtilities
           mvn package
-      - name: Checkout AXS-Spark
-        uses: actions/checkout@v2
-        with:
-          repository: astronomy-commons/axs-spark
-          path: ./axs-spark
-          ref: axs-3.0.0-preview
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Move AXS
-        run: |
-          cp -r ./axs/axs ./axs-spark/python/.
-      - name: Move AxsUtilities
-        run: |
-          # place the built AxsUtilities jar inside the `python/axs` folder
-          cp -r ./axs/AxsUtilities/target/*.jar ./axs-spark/python/axs/.
-      - name: Build AXS-Spark
-        env:
-          AXS_VERSION: ${{ steps.tag.outputs.tag }}
-        run: |
-          # build AXS-Spark into runnable distribution
-          cd axs-spark
-          ./dev/make-distribution.sh --name AXS-$AXS_VERSION --tgz -Phadoop-2.7 -Pmesos -Pyarn -Phive -Phive-thriftserver -Pkubernetes
-          mv spark*tgz ../axs-distribution.tgz
+          mkdir -p /export
+          mv target/AxsUtilities*.jar /export/AxsUtilities.jar
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -60,8 +42,8 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
-          body: Test
-          draft: false
+          body: "AXS jar release"
+          draft: true
           prerelease: false
       - name: Upload Release Asset
         id: upload-release-asset 
@@ -70,7 +52,82 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: axs-distribution.tgz
-          asset_name: axs-distribution.tgz
-          asset_content_type: application/zip
+          asset_path: /export/AxsUtilities.jar
+          asset_name: AxsUtilities.jar
+          asset_content_type: application/java-archive
+
+
+  # build:
+  #   name: Create Release
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Extract tag name
+  #       id: tag
+  #       env:
+  #         ref: ${{ github.ref }}
+  #       run: |
+  #         tag=${ref##*/}
+  #         echo "::set-output name=tag::${tag}"
+  #     - name: Checkout AXS
+  #       uses: actions/checkout@v2
+  #       with:
+  #         repository: stevenstetzler/axs
+  #         path: ./axs
+  #         ref: ${{ github.ref }}
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Read axs-spark ref
+  #       id: axs-spark-ref
+  #       run:
+  #         cd ./axs
+  #         ref=$(cat axs-spark-ref.txt)
+  #         echo "::set-output name=ref::${ref}"
+  #     - name: Build AxsUtilities
+  #       run: |
+  #         # build AxsUtilities.jar
+  #         cd ./axs/AxsUtilities
+  #         mvn package
+  #     # Build AXS-Spark from source
+  #     - name: Checkout AXS-Spark
+  #       uses: actions/checkout@v2
+  #       with:
+  #         repository: astronomy-commons/axs-spark
+  #         path: ./axs-spark
+  #         ref: ${{ steps.axs-spark-ref.outputs.ref }}
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Move AXS
+  #       run: |
+  #         cp -r ./axs/axs ./axs-spark/python/.
+  #     - name: Move AxsUtilities
+  #       run: |
+  #         # place the built AxsUtilities jar inside the `python/axs` folder
+  #         cp -r ./axs/AxsUtilities/target/*.jar ./axs-spark/python/axs/.
+  #     - name: Build AXS-Spark
+  #       env:
+  #         AXS_VERSION: ${{ steps.tag.outputs.tag }}
+  #       run: |
+  #         # build AXS-Spark into runnable distribution
+  #         cd axs-spark
+  #         ./dev/make-distribution.sh --name AXS-$AXS_VERSION --tgz -Phadoop-2.7 -Pmesos -Pyarn -Phive -Phive-thriftserver -Pkubernetes
+  #         mv spark*tgz ../axs-distribution.tgz
+  #     - name: Create Release
+  #       id: create_release
+  #       uses: actions/create-release@v1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+  #       with:
+  #         tag_name: ${{ github.ref }}
+  #         release_name: Release ${{ github.ref }}
+  #         body: Test
+  #         draft: false
+  #         prerelease: false
+  #     - name: Upload Release Asset
+  #       id: upload-release-asset 
+  #       uses: actions/upload-release-asset@v1.0.1
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+  #         asset_path: axs-distribution.tgz
+  #         asset_name: axs-distribution.tgz
+  #         asset_content_type: application/zip
 
